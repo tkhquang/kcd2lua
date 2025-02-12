@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  BUILD_CONFIGURATION: Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1.3
+
+    - name: Configure CMake
+      working-directory: ${{github.workspace}}/cpp
+      run: |
+        cmake -B build -G "Visual Studio 17 2022" 
+
+    - name: Build
+      working-directory: ${{github.workspace}}/cpp
+      run: |
+        cmake --build build --config ${{env.BUILD_CONFIGURATION}}
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        draft: true
+        files: |
+          cpp\build\Release\kcd2lua.asi
+        body: |
+          ## Installation
+          
+          1. Copy `vscodelua.asi` to your game directory (`KingdomComeDeliverance2/Bin/Win64MasterMasterSteamPGO/`)
+          2. Install [Ultimate-ASI-Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases) in the same directory
+          
+          ## Optional Debug Features
+          - Launch with `-console` to see debug output in a separate window
+          - Check `kcd2lua.log` in the game directory for detailed logs
+      env:
+        GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
