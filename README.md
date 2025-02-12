@@ -59,11 +59,7 @@ Generate a Visual Studio solution:
 cd cpp
 cmake -G "Visual Studio 17 2022" .
 ```
-
-Build the solution:
-```ps1
-cmake --build . --config Release
-```
+Open the .sln in Visual Studio and build
 
 ### Building the VS Code Extension
 
