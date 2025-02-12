@@ -4,6 +4,8 @@ This project provides tools for Lua development in Kingdom Come: Deliverance 2, 
 - A VS Code extension for sending Lua code to the game
 - A DLL mod (`.asi`) that enables convenient runtime Lua code execution in the game
 
+It is loaded into the game with the [Ultimate-ASI-Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader) and communicates with VSCode via a local TCP socket to maintain compatability with the game running on Linux under Wine.
+
 ## Building
 
 ### Prerequisites
