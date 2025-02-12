@@ -78,8 +78,9 @@ npm run compile
 
 ### KCD2 Mod
 
-- Install [Ultimate-ASI-Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases) to the same directory as your KingdomCome.exe `KingdomComeDeliverance2/Bin/Win64MasterMasterSteamPGO/`
+- Install [Ultimate-ASI-Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases) to the same directory as your KingdomCome.exe `KingdomComeDeliverance2/Bin/Win64MasterMasterSteamPGO/` I use the dinput8.dll version
 - Copy the vscodelua.asi file to the same directory
+- On Linux add this environment variable to your game's launch options `WINEDLLOVERRIDES="dinput8=n,b"
 
 ### VS Code Extension
 
