@@ -10,6 +10,9 @@ cd lua
 git checkout v5.1.1
 cd ..
 
+# Clean build directory
+rm -rf build
+
 # Create build directory
 mkdir -p build
 
