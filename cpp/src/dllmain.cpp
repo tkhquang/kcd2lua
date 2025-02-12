@@ -9,6 +9,9 @@
 #include <sstream>
 #include <vector>
 #include <cstdint>
+#include <iostream>
+#include <fcntl.h>
+#include <io.h>
 
 extern "C" {
 #include "lua.h"
@@ -16,8 +19,8 @@ extern "C" {
 }
 
 constexpr uint16_t TCP_PORT = 28771;
-const char* pcall_sig = "? ? ? ? ? 57 48 83 EC 40 33 C0 41 8B F8 44 8B D2 48 8B D9 45 85 C9 74 0C 41 8B D1";
-const char* loadbuffer_sig = "? ? ? ? ? ? ? ? ? ? 55 48 8B EC 48 81 EC 80 00 00 00 48 8B F9 ? ? ? ? 33 C9 ? ? ? ? 4D 85 C9 ? ? ? ? 48 8D 45 D8 ? ? ? ? ? ? ? ? 4C 8D 45";
+const char* PCALL_SIG = "? ? ? ? ? 57 48 83 EC 40 33 C0 41 8B F8 44 8B D2 48 8B D9 45 85 C9 74 0C 41 8B D1";
+const char* LOADBUFFER_SIG = "? ? ? ? ? ? ? ? ? ? 55 48 8B EC 48 81 EC 80 00 00 00 48 8B F9 ? ? ? ? 33 C9 ? ? ? ? 4D 85 C9 ? ? ? ? 48 8D 45 D8 ? ? ? ? ? ? ? ? 4C 8D 45";
 
 struct Pattern {
     std::vector<uint8_t> bytes;
@@ -58,17 +61,42 @@ uintptr_t FindPattern(const uint8_t* data, const size_t dataSize, const Pattern&
     return 0;
 }
 
+HANDLE g_ConsoleHandle = NULL;
+
+void InitConsole() {
+    AllocConsole();
+    g_ConsoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleTitleA("Mod Debug Console");
+
+    // Optional: Set console buffer size and window size
+    COORD bufferSize = { 120, 9000 };
+    SetConsoleScreenBufferSize(g_ConsoleHandle, bufferSize);
+
+    SMALL_RECT windowSize = { 0, 0, 119, 30 };
+    SetConsoleWindowInfo(g_ConsoleHandle, TRUE, &windowSize);
+}
+
 void Log(const std::string& message)
 {
+    // Write to console using WriteConsoleA to avoid stdout
+    if (g_ConsoleHandle != NULL) {
+        std::string consoleMsg = message + "\n";
+        DWORD written;
+        WriteConsoleA(g_ConsoleHandle, consoleMsg.c_str(), consoleMsg.length(), &written, NULL);
+    }
+
+    // Write to log file
     std::ofstream logFile("./mod.log", std::ios_base::app);
     if (logFile.is_open())
     {
         logFile << message << std::endl;
         logFile.close();
     }
-    else
+    else if (g_ConsoleHandle != NULL)
     {
-        printf("[ERROR] Could not open log file.\n");
+        const char* error = "[ERROR] Could not open log file.\n";
+        DWORD written;
+        WriteConsoleA(g_ConsoleHandle, error, strlen(error), &written, NULL);
     }
 }
 
@@ -238,6 +266,8 @@ bool VerifyAddress(void* addr, const char* name) {
     return true;
 }
 
+const Pattern PCALL_PATTERN = CreatePattern(PCALL_SIG);
+const Pattern LOADBUFFER_PATTERN = CreatePattern(LOADBUFFER_SIG);
 void hook()
 {
     HMODULE hModule = GetModuleHandleW(L"WHGame.dll");
@@ -255,11 +285,8 @@ void hook()
     const uint8_t* moduleBase = static_cast<const uint8_t*>(modInfo.lpBaseOfDll);
     const size_t moduleSize = modInfo.SizeOfImage;
 
-    Pattern pcall_pattern = CreatePattern(pcall_sig);
-    Pattern loadbuffer_pattern = CreatePattern(loadbuffer_sig);
-
-    uintptr_t pcall_offset = FindPattern(moduleBase, moduleSize, pcall_pattern);
-    uintptr_t loadbuffer_offset = FindPattern(moduleBase, moduleSize, loadbuffer_pattern);
+    uintptr_t pcall_offset = FindPattern(moduleBase, moduleSize, PCALL_PATTERN);
+    uintptr_t loadbuffer_offset = FindPattern(moduleBase, moduleSize, LOADBUFFER_PATTERN);
 
     if (!pcall_offset || !loadbuffer_offset) {
         Log("[ERROR] Failed to find one or more patterns");
@@ -313,6 +340,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved)
     {
         DisableThreadLibraryCalls(hModule);
         CreateThread(nullptr, 0, [](LPVOID param) -> DWORD {
+            InitConsole();
+            Log("[INFO] Mod console initialized");
             Sleep(5000); // Give the game time to initialize
             hook();
             CreateThread(nullptr, 0, TCPServerThread, nullptr, 0, nullptr);
@@ -325,6 +354,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved)
         {
             closesocket(listenSocket);
             WSACleanup();
+        }
+        if (g_ConsoleHandle != NULL) {
+            FreeConsole();
+            g_ConsoleHandle = NULL;
         }
     }
     return TRUE;
