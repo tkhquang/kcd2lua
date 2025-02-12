@@ -38,6 +38,8 @@ include_directories(
 file(GLOB LUA_SOURCES
   lua/*.c
   !lua/lua.c
+  !lua/luac.c
+  !lua/print.c
 )
 
 # Add Lua

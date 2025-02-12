@@ -5,6 +5,11 @@ set -e
 git submodule init
 git submodule update --recursive
 
+# Checkout Lua to specific version
+cd lua
+git checkout v5.1.1
+cd ..
+
 # Create build directory
 mkdir -p build
 
