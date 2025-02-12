@@ -73,13 +73,22 @@ async function sendLuaCode(code: string): Promise<void> {
     });
 }
 
-async function runLua() {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
+async function runLua(document?: vscode.TextDocument) {
+    // If document is not provided, get it from active editor
+    if (!document) {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            return;
+        }
+        document = editor.document;
+    }
+
+    // Only process Lua files
+    if (document.languageId !== 'lua') {
         return;
     }
 
-    const luaCode = editor.document.getText();
+    const luaCode = document.getText();
     if (!luaCode) {
         vscode.window.showErrorMessage('No Lua code found in the document.');
         return;
@@ -99,8 +108,18 @@ async function runLua() {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+    // Register the run command
     const runCommand = vscode.commands.registerCommand('kcd2-lua.run', () => runLua());
     context.subscriptions.push(runCommand);
+
+    // Register the onDidSaveTextDocument event handler
+    const onSave = vscode.workspace.onDidSaveTextDocument((document) => {
+        const config = vscode.workspace.getConfiguration('kcd2-lua');
+        if (config.get<boolean>('runOnSave')) {
+            runLua(document);
+        }
+    });
+    context.subscriptions.push(onSave);
 }
 
 export function deactivate() {

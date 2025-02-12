@@ -16,6 +16,24 @@
                 "command": "kcd2-lua.run",
                 "title": "KCD2: Run Lua Code"
             }
+        ],
+        "configuration": {
+            "title": "KCD2 Lua",
+            "properties": {
+                "kcd2-lua.runOnSave": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Automatically run Lua code when saving the file"
+                }
+            }
+        },
+        "keybindings": [
+            {
+                "command": "kcd2-lua.run",
+                "key": "ctrl+shift+r",
+                "mac": "cmd+shift+r",
+                "when": "editorLangId == lua"
+            }
         ]
     },
     "scripts": {
