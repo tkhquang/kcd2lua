@@ -37,12 +37,12 @@ jobs:
       with:
         draft: true
         files: |
-          ${{github.workspace}}/cpp/build/kcd2lua.asi
+          ${{github.workspace}}/cpp/build/vscodelua.asi
         body: |
           ## Installation
 
           - Install [Ultimate-ASI-Loader](https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases) to the same directory as your KingdomCome.exe `KingdomComeDeliverance2/Bin/Win64MasterMasterSteamPGO/`
-          - Copy the kcd2lua.asi file to the same directory
+          - Copy the vscodelua.asi file to the same directory
 
           ## Optional Debug Features
           - Launch the game with `-console` to see debug output in a separate window
