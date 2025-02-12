@@ -1,0 +1,7 @@
+[submodule "minhook"]
+	path = cpp/minhook
+	url = https://github.com/TsudaKageyu/minhook.git
+[submodule "lua"]
+	path = cpp/lua
+	url = https://github.com/lua/lua.git
+	tag = v5.1.1

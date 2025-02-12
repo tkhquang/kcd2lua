@@ -1,0 +1,32 @@
+{
+    "name": "kcd2-lua",
+    "displayName": "KCD2 Lua",
+    "description": "Lua development tools for Kingdom Come: Deliverance 2",
+    "version": "0.1.0",
+    "engines": {
+        "vscode": "^1.60.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "main": "./dist/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "kcd2-lua.run",
+                "title": "KCD2: Run Lua Code"
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./"
+    },
+    "devDependencies": {
+        "@types/node": "^14.x.x",
+        "@types/vscode": "^1.75.0",
+        "luamin": "^1.0.4",
+        "typescript": "^4.x.x"
+    }
+}
