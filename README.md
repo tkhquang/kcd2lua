@@ -94,7 +94,7 @@ Install from the VS Code Marketplace: TODO: Put link here
 1. Open a Lua file in VS Code
 2. Use the command palette (Ctrl+Shift+P) and search for "KCD2: Run Lua Code"
 3. The code will be sent to the game and executed
-4. Output will appear in the "Lua Output" panel in VS Code
+4. Output will appear in the output panel in VS Code
 
 ## Debugging
 
