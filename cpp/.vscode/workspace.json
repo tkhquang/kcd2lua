@@ -1,7 +1,0 @@
-{
-    "C_Cpp.default.compilerPath": "/usr/bin/x86_64-w64-mingw32-g++",
-	"C_Cpp.default.compilerArgs": [
-		"-I${workspaceFolder}/lua",
-		"-I${workspaceFolder}/minhook/include"
-	]
-}

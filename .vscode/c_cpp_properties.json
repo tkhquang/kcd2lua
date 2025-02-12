@@ -1,0 +1,13 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/cpp/lua",
+		        "${workspaceFolder}/cpp/minhook/include"
+            ],
+            "compilerPath": "/usr/bin/x86_64-w64-mingw32-g++"
+        }
+    ],
+    "version": 4
+}

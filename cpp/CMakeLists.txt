@@ -34,7 +34,7 @@ include_directories(
   ${WINDOWS_SYSTEM_INCLUDE_PATHS}
 )
 
-# Find all .c files in the lua directory, except for lua.c
+# Find all .c files in the lua directory, except for the interpreter
 file(GLOB LUA_SOURCES
   lua/*.c
   !lua/lua.c
@@ -79,7 +79,7 @@ set_target_properties(vscodelua PROPERTIES
 set(CMAKE_GENERATOR_PLATFORM x64)
 
 # Add support for Visual Studio solution generation
-option(VS_SOLUTION "Generate Visual Studio solution" ON)
+option(VS_SOLUTION "Generate Visual Studio solution" OFF)
 
 if(VS_SOLUTION)
     # List of Visual Studio versions to generate solutions for

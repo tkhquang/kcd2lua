@@ -1,7 +1,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
-#include "minhook/include/MinHook.h"
+#include "MinHook.h"
 #include <psapi.h>
 #include <fstream>
 #include <functional>
@@ -11,11 +11,13 @@
 #include <cstdint>
 
 extern "C" {
-#include "lua/lua.h"
-#include "lua/lauxlib.h"
+#include "lua.h"
+#include "lauxlib.h"
 }
 
 constexpr uint16_t TCP_PORT = 28771;
+const char* pcall_sig = "? ? ? ? ? 57 48 83 EC 40 33 C0 41 8B F8 44 8B D2 48 8B D9 45 85 C9 74 0C 41 8B D1";
+const char* loadbuffer_sig = "? ? ? ? ? ? ? ? ? ? 55 48 8B EC 48 81 EC 80 00 00 00 48 8B F9 ? ? ? ? 33 C9 ? ? ? ? 4D 85 C9 ? ? ? ? 48 8D 45 D8 ? ? ? ? ? ? ? ? 4C 8D 45";
 
 struct Pattern {
     std::vector<uint8_t> bytes;
@@ -71,7 +73,6 @@ void Log(const std::string& message)
 }
 
 lua_State* L = nullptr;
-SOCKET listenSocket = INVALID_SOCKET;
 std::function<void()> on_tick = nullptr;
 std::function<void()> on_init = nullptr;
 
@@ -89,6 +90,8 @@ std::string executeLuaCode(const std::string& luaCode)
     }
     return "Lua executed successfully.";
 }
+
+SOCKET listenSocket = INVALID_SOCKET;
 
 DWORD WINAPI TCPServerThread(LPVOID)
 {
@@ -251,9 +254,6 @@ void hook()
 
     const uint8_t* moduleBase = static_cast<const uint8_t*>(modInfo.lpBaseOfDll);
     const size_t moduleSize = modInfo.SizeOfImage;
-
-    const char* pcall_sig = "? ? ? ? ? 57 48 83 EC 40 33 C0 41 8B F8 44 8B D2 48 8B D9 45 85 C9 74 0C 41 8B D1";
-    const char* loadbuffer_sig = "? ? ? ? ? ? ? ? ? ? 55 48 8B EC 48 81 EC 80 00 00 00 48 8B F9 ? ? ? ? 33 C9 ? ? ? ? 4D 85 C9 ? ? ? ? 48 8D 45 D8 ? ? ? ? ? ? ? ? 4C 8D 45";
 
     Pattern pcall_pattern = CreatePattern(pcall_sig);
     Pattern loadbuffer_pattern = CreatePattern(loadbuffer_sig);
