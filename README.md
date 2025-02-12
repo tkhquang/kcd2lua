@@ -84,7 +84,7 @@ npm run compile
 
 ### VS Code Extension
 
-Install from the VS Code Marketplace: TODO: Put link here
+Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=yobson.kcd2-lua-run)
 
 ## Usage
 
