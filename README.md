@@ -57,7 +57,7 @@ cd kcd2lua
 Generate a Visual Studio solution:
 ```ps1
 cd cpp
-cmake -G "Visual Studio 17 2022" .
+cmake -B build -G "Visual Studio 17 2022" .
 ```
 Open the .sln in Visual Studio and build
 
