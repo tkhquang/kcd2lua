@@ -23,8 +23,8 @@ set(WINDOWS_SYSTEM_INCLUDE_PATHS
 )
 
 # Compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -shared")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -shared")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
 # Global include directories
 include_directories(
