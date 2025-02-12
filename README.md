@@ -49,7 +49,7 @@ chmod +x build.sh
 ### Building the DLL Mod - Windows
 
 Clone the repository with submodules:
-```ps1
+```bash
 git clone --recursive https://github.com/yobson1/kcd2lua.git
 cd kcd2lua
 ```
