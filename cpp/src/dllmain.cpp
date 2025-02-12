@@ -62,13 +62,36 @@ uintptr_t FindPattern(const uint8_t* data, const size_t dataSize, const Pattern&
 }
 
 HANDLE g_ConsoleHandle = NULL;
+bool g_ConsoleEnabled = false;
+
+bool CheckForConsoleArg() {
+    LPWSTR cmdLine = GetCommandLineW();
+    int argc;
+    LPWSTR* argv = CommandLineToArgvW(cmdLine, &argc);
+
+    if (argv != NULL) {
+        for (int i = 1; i < argc; i++) {
+            if (_wcsicmp(argv[i], L"-console") == 0) {
+                LocalFree(argv);
+                return true;
+            }
+        }
+        LocalFree(argv);
+    }
+    return false;
+}
 
 void InitConsole() {
+    if (!CheckForConsoleArg()) {
+        g_ConsoleEnabled = false;
+        return;
+    }
+
+    g_ConsoleEnabled = true;
     AllocConsole();
     g_ConsoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTitleA("Mod Debug Console");
 
-    // Optional: Set console buffer size and window size
     COORD bufferSize = { 120, 9000 };
     SetConsoleScreenBufferSize(g_ConsoleHandle, bufferSize);
 
@@ -78,21 +101,21 @@ void InitConsole() {
 
 void Log(const std::string& message)
 {
-    // Write to console using WriteConsoleA to avoid stdout
-    if (g_ConsoleHandle != NULL) {
+    // Write to console if enabled
+    if (g_ConsoleEnabled && g_ConsoleHandle != NULL) {
         std::string consoleMsg = message + "\n";
         DWORD written;
         WriteConsoleA(g_ConsoleHandle, consoleMsg.c_str(), consoleMsg.length(), &written, NULL);
     }
 
-    // Write to log file
+    // Always write to log file
     std::ofstream logFile("./mod.log", std::ios_base::app);
     if (logFile.is_open())
     {
         logFile << message << std::endl;
         logFile.close();
     }
-    else if (g_ConsoleHandle != NULL)
+    else if (g_ConsoleEnabled && g_ConsoleHandle != NULL)
     {
         const char* error = "[ERROR] Could not open log file.\n";
         DWORD written;
@@ -341,8 +364,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved)
         DisableThreadLibraryCalls(hModule);
         CreateThread(nullptr, 0, [](LPVOID param) -> DWORD {
             InitConsole();
-            Log("[INFO] Mod console initialized");
-            Sleep(5000); // Give the game time to initialize
+            if (g_ConsoleEnabled) {
+                Log("[INFO] Mod console initialized");
+            }
             hook();
             CreateThread(nullptr, 0, TCPServerThread, nullptr, 0, nullptr);
             return 0;
@@ -355,7 +379,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved)
             closesocket(listenSocket);
             WSACleanup();
         }
-        if (g_ConsoleHandle != NULL) {
+        if (g_ConsoleEnabled && g_ConsoleHandle != NULL) {
             FreeConsole();
             g_ConsoleHandle = NULL;
         }
