@@ -74,39 +74,3 @@ set_target_properties(vscodelua PROPERTIES
   OUTPUT_NAME "vscodelua"
   SUFFIX ".asi"
 )
-
-# Enable solution generation for multiple Visual Studio versions
-set(CMAKE_GENERATOR_PLATFORM x64)
-
-# Add support for Visual Studio solution generation
-option(VS_SOLUTION "Generate Visual Studio solution" OFF)
-
-if(VS_SOLUTION)
-    # List of Visual Studio versions to generate solutions for
-    set(VS_VERSIONS
-        "Visual Studio 17 2022"  # VS 2022
-        "Visual Studio 16 2019"  # VS 2019
-        "Visual Studio 15 2017"  # VS 2017
-    )
-
-    foreach(VS_VERSION IN LISTS VS_VERSIONS)
-        # Ensure the build directory exists
-        file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/build_${VS_VERSION}")
-
-        # Generate solution for each Visual Studio version
-        execute_process(
-            COMMAND ${CMAKE_COMMAND}
-                -G "${VS_VERSION}"
-                -A x64
-                -S ${CMAKE_CURRENT_SOURCE_DIR}
-                -B ${CMAKE_CURRENT_BINARY_DIR}/build_${VS_VERSION}
-            RESULT_VARIABLE VS_GENERATION_RESULT
-        )
-
-        if(VS_GENERATION_RESULT EQUAL 0)
-            message(STATUS "Generated solution for ${VS_VERSION}")
-        else()
-            message(WARNING "Failed to generate solution for ${VS_VERSION}")
-        endif()
-    endforeach()
-endif()
