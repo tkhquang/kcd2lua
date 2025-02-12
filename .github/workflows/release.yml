@@ -37,7 +37,7 @@ jobs:
       with:
         draft: true
         files: |
-          ${{github.workspace}}/build/Release/vscodelua.asi
+          ${{github.workspace}}\cpp\build\Release\vscodelua.asi
         body: |
           ## Installation
 
