@@ -96,8 +96,9 @@ Install from the VS Code Marketplace: TODO: Put link here
 
 ## Debugging
 
-- The DLL mod creates a `mod.log` file in the game directory
+- The DLL mod creates a `kcd2lua.log` file in the game directory
 - If launched with `-console`, debug output will also appear in a separate console window
 - The VS Code extension outputs connection status and Lua execution results in its output panel
 
 ## Acknowledgements
+[Oren/ecaii](https://github.com/ecaii) - [Original code](https://github.com/ecaii/kcd2-lua-extension)

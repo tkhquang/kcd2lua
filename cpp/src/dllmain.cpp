@@ -109,7 +109,7 @@ void Log(const std::string& message)
     }
 
     // Always write to log file
-    std::ofstream logFile("./mod.log", std::ios_base::app);
+    std::ofstream logFile("./kcd2lua.log", std::ios_base::app);
     if (logFile.is_open())
     {
         logFile << message << std::endl;
