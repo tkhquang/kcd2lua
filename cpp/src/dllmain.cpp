@@ -220,11 +220,38 @@ DWORD WINAPI TCPServerThread(LPVOID)
 
             // Read message length (4 bytes)
             uint32_t messageLength = 0;
-            int bytesReceived = recv(clientSocket, (char*)&messageLength, sizeof(messageLength), 0);
+            int bytesReceived = 0;
 
-            if (bytesReceived <= 0) {
-                LogFormat("[WARN] Client disconnected %d bytes received", bytesReceived);
-                break;  // Connection closed or error
+            try {
+                bytesReceived = recv(clientSocket, (char*)&messageLength, sizeof(messageLength), 0);
+            }
+            catch (const std::exception& e) {
+                LogFormat("[ERROR] Exception during recv (message length): %s", e.what());
+                break;
+            }
+            catch (...) {
+                Log("[ERROR] Unknown exception during recv (message length)");
+                break;
+            }
+
+            if (bytesReceived <= SOCKET_ERROR) {
+                int error = WSAGetLastError();
+                switch (error) {
+                    case WSAECONNRESET:
+                        LogFormat("[WARN] Connection reset by peer (error: %d)", error);
+                        break;
+                    case WSAETIMEDOUT:
+                        LogFormat("[WARN] Connection timed out (error: %d)", error);
+                        break;
+                    default:
+                        LogFormat("[ERROR] recv failed with error: %d", error);
+                        break;
+                }
+                break;  // Exit the inner loop
+            }
+
+            if (bytesReceived == 0) {
+                break;  // Connection closed gracefully
             }
 
             if (bytesReceived != sizeof(messageLength)) {
