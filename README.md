@@ -1,5 +1,5 @@
 # KCD2 Lua Development Tools
-
+![vscodeheader](https://github.com/user-attachments/assets/43212ffd-a96b-45ac-aa6a-9206d0bd32c7)
 This project provides tools for Lua development in Kingdom Come: Deliverance 2, consisting of:
 - A VS Code extension for sending Lua code to the game
 - A DLL mod (`.asi`) that enables convenient runtime Lua code execution in the game
