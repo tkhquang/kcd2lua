@@ -99,6 +99,18 @@ void InitConsole() {
     SetConsoleWindowInfo(g_ConsoleHandle, TRUE, &windowSize);
 }
 
+template<typename T>
+std::string formatHex(T value) {
+    std::stringstream ss;
+    ss << "0x" << std::hex << std::uppercase << value;
+    return ss.str();
+}
+
+template<typename T>
+std::string formatPtr(T* ptr) {
+    return formatHex(reinterpret_cast<uintptr_t>(ptr));
+}
+
 void Log(const std::string& message)
 {
     // Write to console if enabled
@@ -121,6 +133,13 @@ void Log(const std::string& message)
         DWORD written;
         WriteConsoleA(g_ConsoleHandle, error, strlen(error), &written, NULL);
     }
+}
+
+template<typename... Args>
+void LogFormat(const std::string& format, Args... args) {
+    char buffer[1024];
+    snprintf(buffer, sizeof(buffer), format.c_str(), args...);
+    Log(buffer);
 }
 
 lua_State* L = nullptr;
@@ -182,7 +201,7 @@ DWORD WINAPI TCPServerThread(LPVOID)
         return 1;
     }
 
-    Log("[INFO] TCP Server listening on 127.0.0.1:" + std::to_string(TCP_PORT));
+    LogFormat("[INFO] TCP Server listening on 127.0.0.1:%d", TCP_PORT);
 
     while (true)
     {
@@ -197,11 +216,14 @@ DWORD WINAPI TCPServerThread(LPVOID)
 
         while (true)
         {
+            Log("[INFO] Waiting for message...");
+
             // Read message length (4 bytes)
             uint32_t messageLength = 0;
             int bytesReceived = recv(clientSocket, (char*)&messageLength, sizeof(messageLength), 0);
 
             if (bytesReceived <= 0) {
+                LogFormat("[WARN] Client disconnected %d bytes received", bytesReceived);
                 break;  // Connection closed or error
             }
 
@@ -209,6 +231,8 @@ DWORD WINAPI TCPServerThread(LPVOID)
                 Log("[ERROR] Failed to read message length");
                 break;
             }
+
+            LogFormat("[INFO] Expecting message of length %d", messageLength);
 
             // Read the complete message (already null-terminated)
             std::vector<char> buffer(messageLength);
@@ -231,6 +255,8 @@ DWORD WINAPI TCPServerThread(LPVOID)
                 result += "\n";
                 send(clientSocket, result.c_str(), result.length(), 0);
             }
+
+            Log("[INFO] Code executed");
         }
 
         closesocket(clientSocket);
@@ -272,17 +298,17 @@ namespace hooks
 bool VerifyAddress(void* addr, const char* name) {
     MEMORY_BASIC_INFORMATION mbi;
     if (VirtualQuery(addr, &mbi, sizeof(mbi)) == 0) {
-        Log(std::string("[ERROR] Failed to query memory for ") + name);
+        LogFormat("[ERROR] Failed to query memory for %s", name);
         return false;
     }
 
     if (mbi.State != MEM_COMMIT) {
-        Log(std::string("[ERROR] ") + name + " address is not committed memory");
+        LogFormat("[ERROR] %s address is not committed memory", name);
         return false;
     }
 
     if (!(mbi.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY))) {
-        Log(std::string("[ERROR] ") + name + " address is not executable");
+        LogFormat("[ERROR] %s address is not executable", name);
         return false;
     }
 
@@ -308,6 +334,8 @@ void hook()
     const uint8_t* moduleBase = static_cast<const uint8_t*>(modInfo.lpBaseOfDll);
     const size_t moduleSize = modInfo.SizeOfImage;
 
+    LogFormat("[INFO] WHGame.dll base address: %s", formatPtr(moduleBase).c_str());
+
     uintptr_t pcall_offset = FindPattern(moduleBase, moduleSize, PCALL_PATTERN);
     uintptr_t loadbuffer_offset = FindPattern(moduleBase, moduleSize, LOADBUFFER_PATTERN);
 
@@ -318,16 +346,14 @@ void hook()
         return;
     }
 
+    LogFormat("[INFO] Found offsets - lua_pcall: %s, luaL_loadbuffer: %s",
+        formatHex(pcall_offset).c_str(), formatHex(loadbuffer_offset).c_str());
+
     void* pcall_addr = (void*)(reinterpret_cast<uintptr_t>(moduleBase) + pcall_offset);
     void* loadbuffer_addr = (void*)(reinterpret_cast<uintptr_t>(moduleBase) + loadbuffer_offset);
 
-    std::stringstream ss;
-    ss << "Found lua_pcall at: 0x" << std::hex << (uintptr_t)pcall_addr;
-    Log(ss.str());
-
-    std::stringstream ss2;
-    ss2 << "Found luaL_loadbuffer at: 0x" << std::hex << (uintptr_t)loadbuffer_addr;
-    Log(ss2.str());
+    LogFormat("[INFO] Found lua_pcall at: %s", formatPtr(pcall_addr).c_str());
+    LogFormat("[INFO] Found luaL_loadbuffer at: %s", formatPtr(loadbuffer_addr).c_str());
 
     MH_STATUS status = MH_Initialize();
     if (status != MH_OK) {
@@ -363,6 +389,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID reserved)
     {
         DisableThreadLibraryCalls(hModule);
         CreateThread(nullptr, 0, [](LPVOID param) -> DWORD {
+            Log("\n\n[INFO] Mod loaded");
             InitConsole();
             if (g_ConsoleEnabled) {
                 Log("[INFO] Mod console initialized");
