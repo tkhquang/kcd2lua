@@ -5,6 +5,8 @@ This extension allows you to write and execute Lua code directly in Kingdom Come
 ## Features
 
 - Execute code directly in KCD2 with a single command or keybind
+- Automatically find startup scripts and run them and all their dependencies
+- Automatically find and run all script dependencies added by Script.ReloadScript in the workspace
 - Optionally run code automatically when saving your Lua file
 - View execution results and errors in VS Code's output panel
 - Works on both Windows and Linux (via Wine)
@@ -21,8 +23,10 @@ This extension requires the companion KCD2 Lua ASI mod to be installed in your g
 
 ## Getting Started
 
-- Use `Ctrl+Shift+P` and search for "KCD2: Run Lua Code"
+- Use `Ctrl+Shift+P` and search for "KCD2: Run Lua Code" to run the currently open file
 - You can also use Ctrl+Shift+R or enable the `Run On Save` setting to run code when you save the file
+- Use `Ctrl+Shift+P` and search for "KCD2: Run Workspace Scripts" to find and run all startup scripts
+- Any scripts added by `Script.ReloadScript` that can be found in the workspace will also be run recursively
 - The code will execute in-game and any output will appear in VS Code's output panel
 
 ## Contributing

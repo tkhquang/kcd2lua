@@ -2,7 +2,7 @@
     "name": "kcd2-lua-run",
     "displayName": "KCD2 Lua Runner",
     "description": "Lua development tools for Kingdom Come: Deliverance 2",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "publisher": "yobson",
     "private": false,
     "license": "MIT",
@@ -32,6 +32,10 @@
             {
                 "command": "kcd2-lua.run",
                 "title": "KCD2: Run Lua Code"
+            },
+            {
+                "command": "kcd2-lua.runWorkspace",
+                "title": "KCD2: Run Workspace Scripts"
             }
         ],
         "configuration": {
@@ -49,6 +53,12 @@
                 "command": "kcd2-lua.run",
                 "key": "ctrl+shift+r",
                 "mac": "cmd+shift+r",
+                "when": "editorLangId == lua"
+            },
+            {
+                "command": "kcd2-lua.runWorkspace",
+                "key": "ctrl+alt+r",
+                "mac": "cmd+alt+r",
                 "when": "editorLangId == lua"
             }
         ]

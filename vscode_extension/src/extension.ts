@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as net from 'net';
 import { minify } from 'luamin';
+import { ScriptLoader } from './scriptloader';
 
 let socket: net.Socket | null = null;
 let outputChannel: vscode.OutputChannel | null = null;
@@ -15,7 +16,9 @@ function connectToGame(): Promise<boolean> {
         socket = new net.Socket();
 
         socket.connect(28771, '127.0.0.1', () => {
-            outputChannel = vscode.window.createOutputChannel('Lua Output');
+            if (!outputChannel) {
+                outputChannel = vscode.window.createOutputChannel('Lua Output');
+            }
             outputChannel.show();
             resolve(true);
         });
@@ -73,24 +76,10 @@ async function sendLuaCode(code: string): Promise<void> {
     });
 }
 
-async function runLua(document?: vscode.TextDocument) {
-    // If document is not provided, get it from active editor
-    if (!document) {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            return;
-        }
-        document = editor.document;
-    }
-
-    // Only process Lua files
-    if (document.languageId !== 'lua') {
-        return;
-    }
-
-    const luaCode = document.getText();
-    if (!luaCode) {
-        vscode.window.showErrorMessage('No Lua code found in the document.');
+async function processAndSendScripts(startupScript?: { filepath: string; content: string }) {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+        vscode.window.showErrorMessage('No workspace folder open');
         return;
     }
 
@@ -98,28 +87,64 @@ async function runLua(document?: vscode.TextDocument) {
         return;
     }
 
+    if (!outputChannel) {
+        outputChannel = vscode.window.createOutputChannel('Lua Output');
+    }
+
     try {
-        const minifiedCode = minify(luaCode);
-        await sendLuaCode(minifiedCode);
+        outputChannel.show();
+        outputChannel.appendLine(startupScript
+            ? 'Processing single script...'
+            : 'Processing workspace scripts...');
+
+        const loader = new ScriptLoader(workspaceFolders[0].uri.fsPath, outputChannel);
+        const scripts = await loader.processScripts(startupScript);
+
+        for (const script of scripts) {
+            outputChannel.appendLine(`Sending: ${script.filepath}`);
+            const minifiedCode = minify(script.content);
+            await sendLuaCode(minifiedCode);
+
+            // Add a small delay between scripts to ensure proper ordering
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        outputChannel.appendLine(`Finished processing ${startupScript ? 'script and dependencies' : 'all scripts'}`);
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        vscode.window.showErrorMessage('Failed to send Lua code: ' + errorMessage);
+        vscode.window.showErrorMessage(
+            `Failed to process ${startupScript ? 'script' : 'workspace scripts'}: ${errorMessage}`
+        );
     }
 }
 
-export function activate(context: vscode.ExtensionContext) {
-    // Register the run command
-    const runCommand = vscode.commands.registerCommand('kcd2-lua.run', () => runLua());
-    context.subscriptions.push(runCommand);
+async function runSingleScript() {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        return;
+    }
 
-    // Register the onDidSaveTextDocument event handler
-    const onSave = vscode.workspace.onDidSaveTextDocument((document) => {
-        const config = vscode.workspace.getConfiguration('kcd2-lua');
-        if (config.get<boolean>('runOnSave')) {
-            runLua(document);
-        }
+    const luaCode = editor.document.getText();
+    if (!luaCode) {
+        vscode.window.showErrorMessage('No Lua code found in the document.');
+        return;
+    }
+
+    await processAndSendScripts({
+        filepath: editor.document.uri.fsPath,
+        content: luaCode
     });
-    context.subscriptions.push(onSave);
+}
+
+async function runWorkspaceScripts() {
+    await processAndSendScripts();
+}
+
+export function activate(context: vscode.ExtensionContext) {
+    const runCommand = vscode.commands.registerCommand('kcd2-lua.run', () => runSingleScript());
+    const runWorkspaceCommand = vscode.commands.registerCommand('kcd2-lua.runWorkspace', () => runWorkspaceScripts());
+
+    context.subscriptions.push(runCommand, runWorkspaceCommand);
 }
 
 export function deactivate() {
