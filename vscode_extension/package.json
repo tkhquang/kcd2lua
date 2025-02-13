@@ -45,6 +45,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Automatically run Lua code when saving the file"
+                },
+                "kcd2-lua.resolveReloadScriptDependencies": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Resolve and load Script.ReloadScript calls when running Lua code"
                 }
             }
         },

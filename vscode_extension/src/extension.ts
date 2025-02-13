@@ -91,22 +91,33 @@ async function processAndSendScripts(startupScript?: { filepath: string; content
         outputChannel = vscode.window.createOutputChannel('Lua Output');
     }
 
+    const config = vscode.workspace.getConfiguration('kcd2-lua');
+    const shouldResolveDependencies = config.get<boolean>('resolveReloadScriptDependencies', true);
+
     try {
         outputChannel.show();
         outputChannel.appendLine(startupScript
             ? 'Processing single script...'
             : 'Processing workspace scripts...');
 
-        const loader = new ScriptLoader(workspaceFolders[0].uri.fsPath, outputChannel);
-        const scripts = await loader.processScripts(startupScript);
-
-        for (const script of scripts) {
-            outputChannel.appendLine(`Sending: ${script.filepath}`);
-            const minifiedCode = minify(script.content);
+        if (startupScript && !shouldResolveDependencies) {
+            // If dependency resolution is disabled, just send the single script
+            outputChannel.appendLine(`Sending: ${startupScript.filepath}`);
+            const minifiedCode = minify(startupScript.content);
             await sendLuaCode(minifiedCode);
+        } else {
+            // Process scripts with dependencies if enabled or running workspace scripts
+            const loader = new ScriptLoader(workspaceFolders[0].uri.fsPath, outputChannel);
+            const scripts = await loader.processScripts(startupScript);
 
-            // Add a small delay between scripts to ensure proper ordering
-            await new Promise(resolve => setTimeout(resolve, 100));
+            for (const script of scripts) {
+                outputChannel.appendLine(`Sending: ${script.filepath}`);
+                const minifiedCode = minify(script.content);
+                await sendLuaCode(minifiedCode);
+
+                // Add a small delay between scripts to ensure proper ordering
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
         }
 
         outputChannel.appendLine(`Finished processing ${startupScript ? 'script and dependencies' : 'all scripts'}`);
