@@ -26,6 +26,7 @@ This extension requires the companion KCD2 Lua ASI mod to be installed in your g
 - Use `Ctrl+Shift+P` and search for "KCD2: Run Lua Code" to run the currently open file
 - You can also use Ctrl+Shift+R or enable the `Run On Save` setting to run code when you save the file
 - Use `Ctrl+Shift+P` and search for "KCD2: Run Workspace Scripts" to find and run all startup scripts
+- You can also use Ctrl+Alt+R to find and run all startup scripts
 - Any scripts added by `Script.ReloadScript` that can be found in the workspace will also be run, recursively
 - The code will execute in-game and any output will appear in VS Code's output panel
 - Keep mind if you re-run a script you already ran you may overwrite globals you previously defined, if they contain data collected at runtime it will be lost. To avoid this it's good practice to define your globals like this: `MyModTable = MyModTable or {}`
