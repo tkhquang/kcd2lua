@@ -10,7 +10,7 @@ It is loaded into the game with the [Ultimate-ASI-Loader](https://github.com/Thi
 
 ### Prerequisites
 
-You'll need the following packages installed. On Arch/Arched based distros:
+You'll need the following packages installed. On Arch based distros:
 
 ```bash
 # Basic build tools
