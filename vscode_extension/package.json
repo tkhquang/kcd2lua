@@ -2,7 +2,7 @@
     "name": "kcd2-lua-run",
     "displayName": "KCD2 Lua Runner",
     "description": "Lua development tools for Kingdom Come: Deliverance 2",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "publisher": "yobson",
     "private": false,
     "license": "MIT",
