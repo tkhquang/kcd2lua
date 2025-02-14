@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as net from 'net';
 import { ScriptLoader } from './scriptloader';
+import { AutoRunner } from './autorunner';
 
 let socket: net.Socket | null = null;
 let outputChannel: vscode.OutputChannel | null = null;
@@ -53,7 +54,8 @@ async function sendScriptPaths(scriptPaths: string[]): Promise<void> {
         }
 
         // Convert all paths to Unix-style and join with commas
-        const pathsString = scriptPaths.map(p => p.replace(/\\/g, '/')).join(',') + '\0';
+        const pathsString =
+            scriptPaths.map((p) => p.replace(/\\/g, '/')).join(',') + '\0';
         const length = Buffer.byteLength(pathsString);
         const lengthBuffer = Buffer.alloc(4);
         lengthBuffer.writeUInt32LE(length, 0);
@@ -61,7 +63,7 @@ async function sendScriptPaths(scriptPaths: string[]): Promise<void> {
         // Send length prefix and paths
         const finalBuffer = Buffer.concat([
             lengthBuffer,
-            Buffer.from(pathsString)
+            Buffer.from(pathsString),
         ]);
 
         socket.write(finalBuffer, (err) => {
@@ -90,13 +92,18 @@ async function processAndSendScripts(startupScript?: { filepath: string }) {
     }
 
     const config = vscode.workspace.getConfiguration('kcd2-lua');
-    const shouldResolveDependencies = config.get<boolean>('resolveReloadScriptDependencies', true);
+    const shouldResolveDependencies = config.get<boolean>(
+        'resolveReloadScriptDependencies',
+        true
+    );
 
     try {
         outputChannel.show();
-        outputChannel.appendLine(startupScript
-            ? 'Processing single script...'
-            : 'Processing workspace scripts...');
+        outputChannel.appendLine(
+            startupScript
+                ? 'Processing single script...'
+                : 'Processing workspace scripts...'
+        );
 
         if (startupScript && !shouldResolveDependencies) {
             // If dependency resolution is disabled, just send the single script
@@ -104,12 +111,15 @@ async function processAndSendScripts(startupScript?: { filepath: string }) {
             await sendScriptPaths([startupScript.filepath]);
         } else {
             // Process scripts with dependencies if enabled or running workspace scripts
-            const loader = new ScriptLoader(workspaceFolders[0].uri.fsPath, outputChannel);
+            const loader = new ScriptLoader(
+                workspaceFolders[0].uri.fsPath,
+                outputChannel
+            );
             const scripts = await loader.processScripts(startupScript);
-            
+
             // Extract just the file paths
-            const scriptPaths = scripts.map(script => script.filepath);
-            
+            const scriptPaths = scripts.map((script) => script.filepath);
+
             // Send all paths at once
             outputChannel.appendLine('Sending script paths to game...');
             await sendScriptPaths(scriptPaths);
@@ -117,9 +127,12 @@ async function processAndSendScripts(startupScript?: { filepath: string }) {
 
         outputChannel.appendLine('Finished sending script paths');
     } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
         vscode.window.showErrorMessage(
-            `Failed to process ${startupScript ? 'script' : 'workspace scripts'}: ${errorMessage}`
+            `Failed to process ${
+                startupScript ? 'script' : 'workspace scripts'
+            }: ${errorMessage}`
         );
     }
 }
@@ -131,7 +144,7 @@ async function runSingleScript() {
     }
 
     await processAndSendScripts({
-        filepath: editor.document.uri.fsPath
+        filepath: editor.document.uri.fsPath,
     });
 }
 
@@ -139,9 +152,16 @@ async function runWorkspaceScripts() {
     await processAndSendScripts();
 }
 
-export function activate(context: vscode.ExtensionContext) {
-    const runCommand = vscode.commands.registerCommand('kcd2-lua.run', () => runSingleScript());
-    const runWorkspaceCommand = vscode.commands.registerCommand('kcd2-lua.runWorkspace', () => runWorkspaceScripts());
+export async function activate(context: vscode.ExtensionContext) {
+    const runCommand = vscode.commands.registerCommand('kcd2-lua.run', () =>
+        runSingleScript()
+    );
+    const runWorkspaceCommand = vscode.commands.registerCommand(
+        'kcd2-lua.runWorkspace',
+        () => runWorkspaceScripts()
+    );
+
+    new AutoRunner(context, runSingleScript);
 
     context.subscriptions.push(runCommand, runWorkspaceCommand);
 }
