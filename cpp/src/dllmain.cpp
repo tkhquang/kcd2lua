@@ -22,7 +22,8 @@ extern "C" {
 }
 
 constexpr uint16_t TCP_PORT = 28771;
-const char* PCALL_SIG = "? ? ? ? ? 57 48 83 EC 40 33 C0 41 8B F8 44 8B D2 48 8B D9 45 85 C9 74 0C 41 8B D1";
+const char* PCALL_SIG = "48 89 5C 24 ? 57 48 83 EC 40 33 C0 41 8B F8";
+const char* UPDATE_SIG = "48 8B C4 48 89 58 ? 48 89 70 ? 48 89 78 ? 55 41 54 41 55 41 56 41 57 48 8D A8 ? ? ? ? 48 81 EC D0 04 00 00 0F 29 70";
 
 struct Pattern {
     std::vector<uint8_t> bytes;
@@ -152,7 +153,6 @@ struct ExecutionResult {
 
 std::deque<std::string> scriptQueue;
 std::mutex queueMutex;
-bool isExecutingCustomScripts = false;
 
 ExecutionResult currentResult = { true, "", false };
 std::condition_variable resultCondition;
@@ -324,16 +324,16 @@ DWORD WINAPI TCPServerThread(LPVOID)
 
 namespace hooks
 {
-    typedef int32_t(__cdecl* lua_pcall_t)(lua_State* L, int32_t nargs, int32_t nresults, int32_t errfunc);
-    lua_pcall_t plua_pcall = nullptr;
+    lua_State* L = nullptr;
 
-    int32_t lua_pcall_hook(lua_State* L_, int32_t nargs, int32_t nresults, int32_t errfunc)
-    {
-        if (isExecutingCustomScripts) {
-            return plua_pcall(L_, nargs, nresults, errfunc);
+    typedef void(__cdecl* update_t)(long long *param_1, uint32_t param_2, DWORD param_3);
+    update_t pupdate = nullptr;
+
+    void update_hook(long long *param_1, uint32_t param_2, DWORD param_3) {
+        if (scriptQueue.empty() || L == nullptr) {
+            return pupdate(param_1, param_2, param_3);
         }
 
-        isExecutingCustomScripts = true;
         bool hadErrors = false;
         std::string errorMessages;
 
@@ -348,8 +348,8 @@ namespace hooks
 
             LogFormat("[INFO] Loading file: %s", currentFile.c_str());
 
-            if (luaL_dofile(L_, currentFile.c_str()) != 0) {
-                const char* errorMsg = lua_tostring(L_, -1);
+            if (luaL_dofile(L, currentFile.c_str()) != 0) {
+                const char* errorMsg = lua_tostring(L, -1);
                 std::string error = errorMsg ? errorMsg : "Unknown Lua error";
 
                 size_t lastSlash = currentFile.find_last_of("/\\");
@@ -359,17 +359,12 @@ namespace hooks
                 LogFormat("[ERROR] Failed to execute file %s: %s", filename.c_str(), error.c_str());
                 errorMessages += "Error in " + filename + ": " + error + "\n";
                 hadErrors = true;
-                lua_pop(L_, 1);
+                lua_pop(L, 1);
             }
             else {
                 LogFormat("[INFO] Successfully executed file: %s", currentFile.c_str());
             }
         }
-
-        isExecutingCustomScripts = false;
-
-        // Execute the original pcall
-        int32_t result = plua_pcall(L_, nargs, nresults, errfunc);
 
         // Update execution result
         {
@@ -380,7 +375,16 @@ namespace hooks
             resultCondition.notify_one();
         }
 
-        return result;
+        return pupdate(param_1, param_2, param_3);
+    }
+
+    typedef int32_t(__cdecl* lua_pcall_t)(lua_State* L, int32_t nargs, int32_t nresults, int32_t errfunc);
+    lua_pcall_t plua_pcall = nullptr;
+
+    int32_t lua_pcall_hook(lua_State* L_, int32_t nargs, int32_t nresults, int32_t errfunc)
+    {
+        L = L_;
+        return plua_pcall(L_, nargs, nresults, errfunc);
     }
 }
 
@@ -405,6 +409,7 @@ bool VerifyAddress(void* addr, const char* name) {
 }
 
 const Pattern PCALL_PATTERN = CreatePattern(PCALL_SIG);
+const Pattern UPDATE_PATTERN = CreatePattern(UPDATE_SIG);
 void hook()
 {
     HMODULE hModule = GetModuleHandleW(L"WHGame.dll");
@@ -425,18 +430,21 @@ void hook()
     LogFormat("[INFO] WHGame.dll base address: %s", formatPtr(moduleBase).c_str());
 
     uintptr_t pcall_offset = FindPattern(moduleBase, moduleSize, PCALL_PATTERN);
+    uintptr_t update_offset = FindPattern(moduleBase, moduleSize, UPDATE_PATTERN);
 
     if (!pcall_offset) {
         Log("[ERROR] Could not find lua_pcall pattern");
         return;
     }
 
-    LogFormat("[INFO] Found offsets - lua_pcall: %s",
-        formatHex(pcall_offset).c_str());
+    LogFormat("[INFO] Found offsets - lua_pcall: %s update: %s",
+        formatHex(pcall_offset).c_str(), formatHex(update_offset).c_str());
 
     void* pcall_addr = (void*)(reinterpret_cast<uintptr_t>(moduleBase) + pcall_offset);
+    void* update_addr = (void*)(reinterpret_cast<uintptr_t>(moduleBase) + update_offset);
 
     LogFormat("[INFO] Found lua_pcall at: %s", formatPtr(pcall_addr).c_str());
+    LogFormat("[INFO] Found update at: %s", formatPtr(update_addr).c_str());
 
     MH_STATUS status = MH_Initialize();
     if (status != MH_OK) {
@@ -448,6 +456,13 @@ void hook()
                         reinterpret_cast<LPVOID>(&hooks::lua_pcall_hook),
                         reinterpret_cast<LPVOID*>(&hooks::plua_pcall)) != MH_OK) {
         Log("[ERROR] Failed to create lua_pcall hook");
+        return;
+    }
+
+    if (MH_CreateHook(update_addr,
+                        reinterpret_cast<LPVOID>(&hooks::update_hook),
+                        reinterpret_cast<LPVOID*>(&hooks::pupdate)) != MH_OK) {
+        Log("[ERROR] Failed to create update hook");
         return;
     }
 
