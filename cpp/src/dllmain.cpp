@@ -12,6 +12,9 @@
 #include <iostream>
 #include <fcntl.h>
 #include <io.h>
+#include <deque>
+#include <mutex>
+#include <filesystem>
 
 extern "C" {
 #include "lua.h"
@@ -20,7 +23,6 @@ extern "C" {
 
 constexpr uint16_t TCP_PORT = 28771;
 const char* PCALL_SIG = "? ? ? ? ? 57 48 83 EC 40 33 C0 41 8B F8 44 8B D2 48 8B D9 45 85 C9 74 0C 41 8B D1";
-const char* LOADBUFFER_SIG = "? ? ? ? ? ? ? ? ? ? 55 48 8B EC 48 81 EC 80 00 00 00 48 8B F9 ? ? ? ? 33 C9 ? ? ? ? 4D 85 C9 ? ? ? ? 48 8D 45 D8 ? ? ? ? ? ? ? ? 4C 8D 45";
 
 struct Pattern {
     std::vector<uint8_t> bytes;
@@ -142,26 +144,27 @@ void LogFormat(const std::string& format, Args... args) {
     Log(buffer);
 }
 
-lua_State* L = nullptr;
-std::function<void()> on_tick = nullptr;
-std::function<void()> on_init = nullptr;
+struct ExecutionResult {
+    bool success;
+    std::string message;
+    bool ready;
+};
 
-std::string executeLuaCode(const std::string& luaCode)
-{
-    if (!L) return "Lua state not initialized.";
+std::deque<std::string> scriptQueue;
+std::mutex queueMutex;
+bool isExecutingCustomScripts = false;
 
-    if (luaL_dostring(L, luaCode.c_str()) != 0)
-    {
-        const char* errorMsg = lua_tostring(L, -1);
-        std::string error = errorMsg ? errorMsg : "Unknown Lua error";
-        Log("[ERROR] Lua execution failed: " + error);
-        lua_pop(L, 1);
-        return "Lua Error: " + error;
-    }
-    return "Lua executed successfully.";
-}
+ExecutionResult currentResult = { true, "", false };
+std::condition_variable resultCondition;
+std::mutex resultMutex;
 
 SOCKET listenSocket = INVALID_SOCKET;
+
+void pushFileToQueue(const std::string& filepath) {
+    std::lock_guard<std::mutex> lock(queueMutex);
+    scriptQueue.push_back(filepath);
+    LogFormat("[INFO] Pushed file to queue: %s", filepath.c_str());
+}
 
 DWORD WINAPI TCPServerThread(LPVOID)
 {
@@ -261,13 +264,13 @@ DWORD WINAPI TCPServerThread(LPVOID)
 
             LogFormat("[INFO] Expecting message of length %d", messageLength);
 
-            // Read the complete message (already null-terminated)
+            // Read the file paths
             std::vector<char> buffer(messageLength);
             size_t totalReceived = 0;
 
-            while (totalReceived < static_cast<size_t>(messageLength)) {
+            while (totalReceived < messageLength) {
                 bytesReceived = recv(clientSocket, buffer.data() + totalReceived,
-                                   messageLength - totalReceived, 0);
+                                messageLength - totalReceived, 0);
 
                 if (bytesReceived <= 0) {
                     Log("[ERROR] Connection error while reading message");
@@ -277,13 +280,39 @@ DWORD WINAPI TCPServerThread(LPVOID)
                 totalReceived += bytesReceived;
             }
 
-            if (totalReceived == static_cast<size_t>(messageLength)) {
-                std::string result = executeLuaCode(buffer.data());
-                result += "\n";
-                send(clientSocket, result.c_str(), result.length(), 0);
+            if (totalReceived == messageLength) {
+                std::string fileList(buffer.data());
+                std::stringstream ss(fileList);
+                std::string filePath;
+                
+                Log("[INFO] Processing file list...");
+
+                // Reset execution result
+                {
+                    std::lock_guard<std::mutex> lock(resultMutex);
+                    currentResult = { true, "", false };
+                }
+
+                while (std::getline(ss, filePath, ',')) {
+                    if (filePath.empty()) continue;
+                    pushFileToQueue(filePath);
+                }
+                
+                std::string response = "Files queued for execution\n";
+                send(clientSocket, response.c_str(), response.length(), 0);
+
+                // Wait for the signal that execution completed
+                {
+                    std::unique_lock<std::mutex> lock(resultMutex);
+                    resultCondition.wait(lock, [] { return currentResult.ready; });
+                    
+                    // Send the result back to vscode
+                    std::string response = currentResult.message;
+                    send(clientSocket, response.c_str(), response.length(), 0);
+                }
             }
 
-            Log("[INFO] Code executed");
+            Log("[INFO] Files executed");
         }
 
         closesocket(clientSocket);
@@ -295,30 +324,63 @@ DWORD WINAPI TCPServerThread(LPVOID)
 
 namespace hooks
 {
-    typedef int32_t(__cdecl* luaL_loadbuffer_t)(lua_State* L, char* buff, size_t size, char* name);
-    luaL_loadbuffer_t pluaL_loadbuffer = nullptr;
-
-    int32_t luaL_loadbuffer_hook(lua_State* L, char* buff, size_t size, char* name)
-    {
-        return pluaL_loadbuffer(L, buff, size, name);
-    }
-
     typedef int32_t(__cdecl* lua_pcall_t)(lua_State* L, int32_t nargs, int32_t nresults, int32_t errfunc);
     lua_pcall_t plua_pcall = nullptr;
 
     int32_t lua_pcall_hook(lua_State* L_, int32_t nargs, int32_t nresults, int32_t errfunc)
     {
-        int32_t return_val = plua_pcall(L_, nargs, nresults, errfunc);
-        if (L == nullptr)
-        {
-            Log("[LUA] Hooked!");
-            L = L_;
-
-            if (on_init != nullptr)
-                on_init();
+        if (isExecutingCustomScripts) {
+            return plua_pcall(L_, nargs, nresults, errfunc);
         }
 
-        return return_val;
+        isExecutingCustomScripts = true;
+        bool hadErrors = false;
+        std::string errorMessages;
+
+        while (!scriptQueue.empty()) {
+            std::string currentFile;
+            
+            {
+                std::lock_guard<std::mutex> lock(queueMutex);
+                currentFile = scriptQueue.front();
+                scriptQueue.pop_front();
+            }
+            
+            LogFormat("[INFO] Loading file: %s", currentFile.c_str());
+
+            if (luaL_dofile(L_, currentFile.c_str()) != 0) {
+                const char* errorMsg = lua_tostring(L_, -1);
+                std::string error = errorMsg ? errorMsg : "Unknown Lua error";
+
+                size_t lastSlash = currentFile.find_last_of("/\\");
+                std::string filename = (lastSlash == std::string::npos) ? 
+                currentFile : currentFile.substr(lastSlash + 1);
+
+                LogFormat("[ERROR] Failed to execute file %s: %s", filename.c_str(), error.c_str());
+                errorMessages += "Error in " + filename + ": " + error + "\n";
+                hadErrors = true;
+                lua_pop(L_, 1);
+            }
+            else {
+                LogFormat("[INFO] Successfully executed file: %s", currentFile.c_str());
+            }
+        }
+
+        isExecutingCustomScripts = false;
+
+        // Execute the original pcall
+        int32_t result = plua_pcall(L_, nargs, nresults, errfunc);
+
+        // Update execution result
+        {
+            std::lock_guard<std::mutex> lock(resultMutex);
+            currentResult.success = !hadErrors;
+            currentResult.message = hadErrors ? errorMessages : "All scripts executed successfully";
+            currentResult.ready = true;
+            resultCondition.notify_one();
+        }
+
+        return result;
     }
 }
 
@@ -343,7 +405,6 @@ bool VerifyAddress(void* addr, const char* name) {
 }
 
 const Pattern PCALL_PATTERN = CreatePattern(PCALL_SIG);
-const Pattern LOADBUFFER_PATTERN = CreatePattern(LOADBUFFER_SIG);
 void hook()
 {
     HMODULE hModule = GetModuleHandleW(L"WHGame.dll");
@@ -364,23 +425,18 @@ void hook()
     LogFormat("[INFO] WHGame.dll base address: %s", formatPtr(moduleBase).c_str());
 
     uintptr_t pcall_offset = FindPattern(moduleBase, moduleSize, PCALL_PATTERN);
-    uintptr_t loadbuffer_offset = FindPattern(moduleBase, moduleSize, LOADBUFFER_PATTERN);
 
-    if (!pcall_offset || !loadbuffer_offset) {
-        Log("[ERROR] Failed to find one or more patterns");
-        if (!pcall_offset) Log("- Could not find lua_pcall pattern");
-        if (!loadbuffer_offset) Log("- Could not find luaL_loadbuffer pattern");
+    if (!pcall_offset) {
+        Log("[ERROR] Could not find lua_pcall pattern");
         return;
     }
 
-    LogFormat("[INFO] Found offsets - lua_pcall: %s, luaL_loadbuffer: %s",
-        formatHex(pcall_offset).c_str(), formatHex(loadbuffer_offset).c_str());
+    LogFormat("[INFO] Found offsets - lua_pcall: %s",
+        formatHex(pcall_offset).c_str());
 
     void* pcall_addr = (void*)(reinterpret_cast<uintptr_t>(moduleBase) + pcall_offset);
-    void* loadbuffer_addr = (void*)(reinterpret_cast<uintptr_t>(moduleBase) + loadbuffer_offset);
 
     LogFormat("[INFO] Found lua_pcall at: %s", formatPtr(pcall_addr).c_str());
-    LogFormat("[INFO] Found luaL_loadbuffer at: %s", formatPtr(loadbuffer_addr).c_str());
 
     MH_STATUS status = MH_Initialize();
     if (status != MH_OK) {
@@ -392,13 +448,6 @@ void hook()
                         reinterpret_cast<LPVOID>(&hooks::lua_pcall_hook),
                         reinterpret_cast<LPVOID*>(&hooks::plua_pcall)) != MH_OK) {
         Log("[ERROR] Failed to create lua_pcall hook");
-        return;
-    }
-
-    if (MH_CreateHook(loadbuffer_addr,
-                        reinterpret_cast<LPVOID>(&hooks::luaL_loadbuffer_hook),
-                        reinterpret_cast<LPVOID*>(&hooks::pluaL_loadbuffer)) != MH_OK) {
-        Log("[ERROR] Failed to create luaL_loadbuffer hook");
         return;
     }
 

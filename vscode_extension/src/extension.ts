@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as net from 'net';
-import { minify } from 'luamin';
 import { ScriptLoader } from './scriptloader';
 
 let socket: net.Socket | null = null;
@@ -37,7 +36,7 @@ function connectToGame(): Promise<boolean> {
 
         socket.on('data', (data) => {
             const response = data.toString();
-            if (response.startsWith('Lua Error')) {
+            if (response.startsWith('Error')) {
                 outputChannel?.appendLine(`[Error]: ${response}`);
             } else {
                 outputChannel?.appendLine(`[Output]: ${response}`);
@@ -46,26 +45,25 @@ function connectToGame(): Promise<boolean> {
     });
 }
 
-async function sendLuaCode(code: string): Promise<void> {
+async function sendScriptPaths(scriptPaths: string[]): Promise<void> {
     return new Promise((resolve, reject) => {
         if (!socket) {
             reject(new Error('No socket connection'));
             return;
         }
 
-        // Add length prefix to the code and null terminator
-        const codeWithNull = code + '\0';
-        const length = Buffer.byteLength(codeWithNull);
+        // Convert all paths to Unix-style and join with commas
+        const pathsString = scriptPaths.map(p => p.replace(/\\/g, '/')).join(',') + '\0';
+        const length = Buffer.byteLength(pathsString);
         const lengthBuffer = Buffer.alloc(4);
         lengthBuffer.writeUInt32LE(length, 0);
 
-        // Create a single buffer with length prefix and null-terminated code
+        // Send length prefix and paths
         const finalBuffer = Buffer.concat([
             lengthBuffer,
-            Buffer.from(codeWithNull)
+            Buffer.from(pathsString)
         ]);
 
-        // Send as a single write
         socket.write(finalBuffer, (err) => {
             if (err) {
                 reject(err);
@@ -76,7 +74,7 @@ async function sendLuaCode(code: string): Promise<void> {
     });
 }
 
-async function processAndSendScripts(startupScript?: { filepath: string; content: string }) {
+async function processAndSendScripts(startupScript?: { filepath: string }) {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
         vscode.window.showErrorMessage('No workspace folder open');
@@ -103,24 +101,21 @@ async function processAndSendScripts(startupScript?: { filepath: string; content
         if (startupScript && !shouldResolveDependencies) {
             // If dependency resolution is disabled, just send the single script
             outputChannel.appendLine(`Sending: ${startupScript.filepath}`);
-            const minifiedCode = minify(startupScript.content);
-            await sendLuaCode(minifiedCode);
+            await sendScriptPaths([startupScript.filepath]);
         } else {
             // Process scripts with dependencies if enabled or running workspace scripts
             const loader = new ScriptLoader(workspaceFolders[0].uri.fsPath, outputChannel);
             const scripts = await loader.processScripts(startupScript);
-
-            for (const script of scripts) {
-                outputChannel.appendLine(`Sending: ${script.filepath}`);
-                const minifiedCode = minify(script.content);
-                await sendLuaCode(minifiedCode);
-
-                // Add a small delay between scripts to ensure proper ordering
-                await new Promise(resolve => setTimeout(resolve, 100));
-            }
+            
+            // Extract just the file paths
+            const scriptPaths = scripts.map(script => script.filepath);
+            
+            // Send all paths at once
+            outputChannel.appendLine('Sending script paths to game...');
+            await sendScriptPaths(scriptPaths);
         }
 
-        outputChannel.appendLine(`Finished processing ${startupScript ? 'script and dependencies' : 'all scripts'}`);
+        outputChannel.appendLine('Finished sending script paths');
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         vscode.window.showErrorMessage(
@@ -135,15 +130,8 @@ async function runSingleScript() {
         return;
     }
 
-    const luaCode = editor.document.getText();
-    if (!luaCode) {
-        vscode.window.showErrorMessage('No Lua code found in the document.');
-        return;
-    }
-
     await processAndSendScripts({
-        filepath: editor.document.uri.fsPath,
-        content: luaCode
+        filepath: editor.document.uri.fsPath
     });
 }
 

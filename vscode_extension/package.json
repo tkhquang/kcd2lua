@@ -75,9 +75,6 @@
         "package": "vsce package",
         "publish": "vsce publish"
     },
-    "dependencies": {
-        "luamin": "^1.0.4"
-    },
     "devDependencies": {
         "@types/node": "^14.x.x",
         "@types/vscode": "^1.75.0",
