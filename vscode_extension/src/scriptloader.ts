@@ -4,13 +4,11 @@ import * as fs from 'fs';
 
 interface ScriptInfo {
     filepath: string;
-    content: string;
     dependencies: string[];
 }
 
 interface StartupScript {
     filepath: string;
-    content?: string;
 }
 
 export class ScriptLoader {
@@ -49,21 +47,18 @@ export class ScriptLoader {
 
     private extractDependencies(content: string, scriptPath: string): string[] {
         const dependencies: string[] = [];
-        const regex = /Script\.ReloadScript\s*(?:\(\s*)?["']([^"']+)["']\s*(?:\))?\s*;?\s*\n?/g;
+        const regex = /^(?!.*--.*$).*?Script\.ReloadScript\s*(?:\(\s*)?["']([^"']+)["']\s*(?:\))?\s*;?\s*\n?/gm;;
         let match;
 
         this.log(`Extracting dependencies from: ${path.basename(scriptPath)}`);
         while ((match = regex.exec(content)) !== null) {
+            this.log(`Found dependency in ${path.basename(scriptPath)}: ${match[0]}`);
             const dep = match[1].replace(/\\/g, '/');
             dependencies.push(dep);
             this.log(`Found dependency in ${path.basename(scriptPath)}: ${dep}`);
         }
 
         return dependencies;
-    }
-
-    private removeReloadScripts(content: string): string {
-        return content.replace(/Script\.ReloadScript\s*(?:\(\s*)?["'][^"']+["']\s*(?:\))?\s*;?\s*\n?/g, '');
     }
 
     private async loadScript(scriptPath: string, content?: string): Promise<ScriptInfo> {
@@ -78,11 +73,9 @@ export class ScriptLoader {
         const scriptContent = content ?? await fs.promises.readFile(scriptPath, 'utf8');
 
         const dependencies = this.extractDependencies(scriptContent, scriptPath);
-        const cleanedContent = this.removeReloadScripts(scriptContent);
 
         const scriptInfo: ScriptInfo = {
             filepath: scriptPath,
-            content: cleanedContent,
             dependencies
         };
 
@@ -151,7 +144,7 @@ export class ScriptLoader {
         if (startupScript) {
             // Process single script mode
             this.log('Processing single startup script');
-            await this.processScript(startupScript.filepath, scripts, startupScript.content);
+            await this.processScript(startupScript.filepath, scripts);
         } else {
             // Process all startup scripts from workspace
             const startupScripts = await this.getStartupScripts();
