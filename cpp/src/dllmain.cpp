@@ -14,7 +14,7 @@
 #include <io.h>
 #include <deque>
 #include <mutex>
-#include <filesystem>
+#include <condition_variable>
 
 extern "C" {
 #include "lua.h"
@@ -284,7 +284,7 @@ DWORD WINAPI TCPServerThread(LPVOID)
                 std::string fileList(buffer.data());
                 std::stringstream ss(fileList);
                 std::string filePath;
-                
+
                 Log("[INFO] Processing file list...");
 
                 // Reset execution result
@@ -297,7 +297,7 @@ DWORD WINAPI TCPServerThread(LPVOID)
                     if (filePath.empty()) continue;
                     pushFileToQueue(filePath);
                 }
-                
+
                 std::string response = "Files queued for execution\n";
                 send(clientSocket, response.c_str(), response.length(), 0);
 
@@ -305,7 +305,7 @@ DWORD WINAPI TCPServerThread(LPVOID)
                 {
                     std::unique_lock<std::mutex> lock(resultMutex);
                     resultCondition.wait(lock, [] { return currentResult.ready; });
-                    
+
                     // Send the result back to vscode
                     std::string response = currentResult.message;
                     send(clientSocket, response.c_str(), response.length(), 0);
@@ -339,13 +339,13 @@ namespace hooks
 
         while (!scriptQueue.empty()) {
             std::string currentFile;
-            
+
             {
                 std::lock_guard<std::mutex> lock(queueMutex);
                 currentFile = scriptQueue.front();
                 scriptQueue.pop_front();
             }
-            
+
             LogFormat("[INFO] Loading file: %s", currentFile.c_str());
 
             if (luaL_dofile(L_, currentFile.c_str()) != 0) {
@@ -353,7 +353,7 @@ namespace hooks
                 std::string error = errorMsg ? errorMsg : "Unknown Lua error";
 
                 size_t lastSlash = currentFile.find_last_of("/\\");
-                std::string filename = (lastSlash == std::string::npos) ? 
+                std::string filename = (lastSlash == std::string::npos) ?
                 currentFile : currentFile.substr(lastSlash + 1);
 
                 LogFormat("[ERROR] Failed to execute file %s: %s", filename.c_str(), error.c_str());
