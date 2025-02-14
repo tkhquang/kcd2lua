@@ -88,7 +88,7 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 
 ## Usage
 
-Usage instructions can be found in [the extension's readme](vscode_extension/README.md#getting-started)
+Usage instructions can be found in [the extension's readme](vscode_extension/README.md#getting-started)\
 Note that the asi and extension's major version must match to be compatible. 1.X.X will work with 1.X.X but not 2.X.X+
 
 ## Debugging

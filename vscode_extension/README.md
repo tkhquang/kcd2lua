@@ -21,6 +21,9 @@ This extension requires the companion KCD2 Lua ASI mod to be installed in your g
 2. Get the KCD2 Lua ASI mod from [kcd2lua releases](https://github.com/yobson1/kcd2lua/releases)
    - Place `vscodelua.asi` in the same directory as above
 
+Note that the asi and extension's major version must match to be compatible. 1.X.X will work with 1.X.X but not 2.X.X+\
+If the extension stops working check your versions are compatible, there may be an update available for the asi
+
 ## Getting Started
 
 - Use `Ctrl+Shift+P` and search for "KCD2: Run Lua Code" to run the currently open file
