@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as net from 'net';
 import { ScriptLoader } from './scriptloader';
 import { AutoRunner } from './autorunner';
+import { VersionChecker } from './version-checker';
 
 let socket: net.Socket | null = null;
 let outputChannel: vscode.OutputChannel | null = null;
@@ -160,6 +161,9 @@ export async function activate(context: vscode.ExtensionContext) {
         'kcd2-lua.runWorkspace',
         () => runWorkspaceScripts()
     );
+
+    const versionChecker = new VersionChecker(context);
+    await versionChecker.checkForMajorUpdate();
 
     new AutoRunner(context, runSingleScript);
 
