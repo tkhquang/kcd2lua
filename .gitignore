@@ -3,3 +3,4 @@ vscode_extension/dist
 vscode_extension/node_modules
 .vscode/settings.json
 vscode_extension/*.vsix
+build
