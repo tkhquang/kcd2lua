@@ -29,17 +29,17 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 # Global include directories
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}/lua
+  ${CMAKE_CURRENT_SOURCE_DIR}/cryengine/Code/SDKs/Lua/src
   ${CMAKE_CURRENT_SOURCE_DIR}/minhook/include
   ${WINDOWS_SYSTEM_INCLUDE_PATHS}
 )
 
 # Find all .c files in the lua directory, except for the interpreter
 file(GLOB LUA_SOURCES
-  lua/*.c
-  !lua/lua.c
-  !lua/luac.c
-  !lua/print.c
+cryengine/Code/SDKs/Lua/src/*.c
+  !cryengine/Code/SDKs/Lua/src/lua.c
+  !cryengine/Code/SDKs/Lua/src/luac.c
+  !cryengine/Code/SDKs/Lua/src/print.c
 )
 
 # Add Lua

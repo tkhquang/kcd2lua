@@ -3,7 +3,7 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/cpp/lua",
+                "${workspaceFolder}/cpp/cryengine/Code/SDKs/Lua/src",
 		        "${workspaceFolder}/cpp/minhook/include"
             ],
             "compilerPath": "/usr/bin/x86_64-w64-mingw32-g++"

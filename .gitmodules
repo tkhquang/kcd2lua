@@ -1,6 +1,6 @@
-[submodule "cpp/lua"]
-	path = cpp/lua
-	url = https://github.com/lua/lua.git
 [submodule "cpp/minhook"]
 	path = cpp/minhook
 	url = https://github.com/TsudaKageyu/minhook.git
+[submodule "cpp/cryengine"]
+	path = cpp/cryengine
+	url = https://github.com/lp249839965/CryEngine-5.2.3.git
