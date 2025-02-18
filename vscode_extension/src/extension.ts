@@ -99,7 +99,6 @@ async function processAndSendScripts(startupScript?: { filepath: string }) {
     );
 
     try {
-        outputChannel.show();
         outputChannel.appendLine(
             startupScript
                 ? 'Processing single script...'
