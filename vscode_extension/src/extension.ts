@@ -6,8 +6,13 @@ import { VersionChecker } from './version-checker';
 
 let socket: net.Socket | null = null;
 let outputChannel: vscode.OutputChannel | null = null;
+let statusBarItem: vscode.StatusBarItem | null = null;
 
 function connectToGame(): Promise<boolean> {
+    if (!statusBarItem) {
+        initStatusBar();
+    }
+
     return new Promise((resolve) => {
         if (socket) {
             resolve(true);
@@ -17,6 +22,7 @@ function connectToGame(): Promise<boolean> {
         socket = new net.Socket();
 
         socket.connect(28771, '127.0.0.1', () => {
+            statusBarItem!.text = 'KCD2: $(plug) Connected';
             if (!outputChannel) {
                 outputChannel = vscode.window.createOutputChannel('Lua Output');
             }
@@ -25,6 +31,7 @@ function connectToGame(): Promise<boolean> {
         });
 
         socket.on('error', (error) => {
+            statusBarItem!.text = 'KCD2: $(circle-slash) Error connecting';
             vscode.window.showErrorMessage('Failed to connect to game.');
             socket = null;
             outputChannel?.appendLine('Connection error: ' + error.message);
@@ -32,6 +39,7 @@ function connectToGame(): Promise<boolean> {
         });
 
         socket.on('end', () => {
+            statusBarItem!.text = 'KCD2: $(debug-disconnect) Disconnected';
             socket = null;
             outputChannel?.appendLine('Disconnected from game.');
         });
@@ -40,6 +48,7 @@ function connectToGame(): Promise<boolean> {
             const response = data.toString();
             if (response.startsWith('Error')) {
                 outputChannel?.appendLine(`[Error]: ${response}`);
+                outputChannel?.show();
             } else {
                 outputChannel?.appendLine(`[Output]: ${response}`);
             }
@@ -150,6 +159,17 @@ async function runSingleScript() {
 
 async function runWorkspaceScripts() {
     await processAndSendScripts();
+}
+
+function initStatusBar() {
+    statusBarItem = vscode.window.createStatusBarItem(
+        vscode.StatusBarAlignment.Right,
+        100
+    );
+    statusBarItem.text = 'KCD2: $(debug-disconnect) Disconnected';
+    statusBarItem.command = 'kcd2-lua.runWorkspace';
+    statusBarItem.tooltip = 'Click to run workspace scripts';
+    statusBarItem.show();
 }
 
 export async function activate(context: vscode.ExtensionContext) {
