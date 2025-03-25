@@ -126,6 +126,13 @@ async function processAndSendScripts(startupScript?: { filepath: string }) {
             );
             const scripts = await loader.processScripts(startupScript);
 
+            if (scripts.length === 0) {
+                outputChannel.appendLine(
+                    'No startup scripts found in workspace'
+                );
+                return;
+            }
+
             // Extract just the file paths
             const scriptPaths = scripts.map((script) => script.filepath);
 
