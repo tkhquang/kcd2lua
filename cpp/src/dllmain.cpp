@@ -24,7 +24,7 @@ extern "C" {
 
 constexpr uint16_t TCP_PORT = 28771;
 const char* PCALL_SIG = "48 89 5C 24 ? 57 48 83 EC 40 33 C0 41 8B F8";
-const char* UPDATE_SIG = "48 8B C4 48 89 58 ? 48 89 70 ? 48 89 78 ? 55 41 54 41 55 41 56 41 57 48 8D A8 ? ? ? ? 48 81 EC D0 04 00 00 0F 29 70";
+const char* UPDATE_SIG = "48 8B C4 48 89 58 ? 48 89 70 ? 48 89 78 ? 55 41 54 41 55 41 56 41 57 48 8D A8 ? ? ? ? 48 81 EC C0 04 00 00";
 const char* LOADFILE_SIG = "48 89 5C 24 ? 48 89 74 24 ? 55 57 41 56 48 8D AC 24 ? ? ? ? 48 81 EC 40 02 00 00";
 
 struct Pattern {
